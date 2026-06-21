@@ -130,6 +130,32 @@
       cursor: pointer;
     }
     
+    #source-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .source-tab {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(180, 120, 255, 0.2);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: rgba(200, 170, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .source-tab:hover { background: rgba(160, 100, 255, 0.2); }
+    .source-tab.active {
+      background: linear-gradient(135deg, rgba(160, 100, 255, 0.4), rgba(244, 114, 182, 0.4));
+      border-color: rgba(160, 100, 255, 0.5);
+      color: #fff;
+    }
+    
     #url-container {
       display: flex;
       gap: 8px;
@@ -166,11 +192,60 @@
       background: linear-gradient(135deg, rgba(160, 100, 255, 0.5), rgba(244, 114, 182, 0.5));
     }
     
+    #radio-list {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+      justify-content: center;
+    }
+    
+    #radio-list.show { display: flex; }
+    
+    .radio-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(180, 120, 255, 0.2);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 10px;
+      color: rgba(200, 170, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .radio-btn:hover {
+      background: rgba(160, 100, 255, 0.3);
+      color: #fff;
+    }
+    
+    #youtube-container {
+      display: none;
+      margin-top: 10px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    #youtube-container.show { display: block; }
+    
+    #youtube-frame {
+      width: 100%;
+      height: 180px;
+      border: none;
+      border-radius: 10px;
+    }
+    
     #status-msg {
       font-size: 12px;
       color: rgba(200, 170, 255, 0.5);
       text-align: center;
       margin-top: 8px;
+    }
+    
+    .source-info {
+      font-size: 10px;
+      color: rgba(200, 170, 255, 0.4);
+      text-align: center;
+      margin-top: 6px;
     }
     
     #vr-instructions {
@@ -300,7 +375,15 @@
     <div id="player-panel">
       <div id="song-info">
         <div id="song-title">🎵 VR Music Experience</div>
-        <div id="song-artist">Carga una canción para comenzar</div>
+        <div id="song-artist">Selecciona una fuente de música</div>
+      </div>
+      
+      <!-- Source tabs -->
+      <div id="source-tabs">
+        <button class="source-tab active" onclick="setSource('direct')">🎵 URL Directa</button>
+        <button class="source-tab" onclick="setSource('youtube')">▶️ YouTube</button>
+        <button class="source-tab" onclick="setSource('soundcloud')">☁️ SoundCloud</button>
+        <button class="source-tab" onclick="setSource('radio')">📻 Radio</button>
       </div>
       
       <div id="progress-container">
@@ -324,10 +407,31 @@
       
       <div id="url-container">
         <input id="song-url-input" placeholder="Pega URL de audio (.mp3, .ogg, .wav)...">
-        <button id="load-btn" onclick="loadSongUrl()">▶ Cargar</button>
+        <button id="load-btn" onclick="loadSource()">▶ Cargar</button>
+      </div>
+      
+      <!-- Radio stations list -->
+      <div id="radio-list">
+        <button class="radio-btn" onclick="loadRadio('lofi', 'https://streams.ilovemusic.de/iloveradio17.mp3')">🎧 Lo-Fi</button>
+        <button class="radio-btn" onclick="loadRadio('chillout', 'https://streams.ilovemusic.de/iloveradio2.mp3')">🌴 Chill</button>
+        <button class="radio-btn" onclick="loadRadio('dance', 'https://streams.ilovemusic.de/iloveradio1.mp3')">💃 Dance</button>
+        <button class="radio-btn" onclick="loadRadio('hiphop', 'https://streams.ilovemusic.de/iloveradio3.mp3')">🎤 Hip-Hop</button>
+        <button class="radio-btn" onclick="loadRadio('rock', 'https://streams.ilovemusic.de/iloveradio16.mp3')">🎸 Rock</button>
+        <button class="radio-btn" onclick="loadRadio('electronic', 'https://streams.ilovemusic.de/iloveradio6.mp3')">🎹 Electronic</button>
+      </div>
+      
+      <!-- YouTube embed container -->
+      <div id="youtube-container">
+        <iframe id="youtube-frame" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>
+      
+      <!-- SoundCloud embed container -->
+      <div id="soundcloud-container" style="display:none; margin-top:10px;">
+        <iframe id="soundcloud-frame" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay"></iframe>
       </div>
       
       <div id="status-msg">Listo para la experiencia inmersiva 🚀</div>
+      <div class="source-info" id="source-info">Fuente: URL Directa - Visualizador activo ✓</div>
     </div>
   </div>
   
@@ -337,6 +441,7 @@
     let audioCtx, analyser, dataArray, source;
     let isAudioConnected = false;
     let isPlaying = false;
+    let currentSource = 'direct'; // direct, youtube, soundcloud, radio
     
     // Scene elements
     let bars = [];
@@ -345,6 +450,190 @@
     const BAR_COUNT = 64;
     const PARTICLE_COUNT = 200;
     const STAR_COUNT = 1500;
+    
+    // Source management
+    function setSource(type) {
+      currentSource = type;
+      
+      // Update tabs
+      document.querySelectorAll('.source-tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // Hide all containers
+      document.getElementById('radio-list').classList.remove('show');
+      document.getElementById('youtube-container').classList.remove('show');
+      document.getElementById('soundcloud-container').style.display = 'none';
+      document.getElementById('url-container').style.display = 'flex';
+      document.getElementById('progress-container').style.display = 'flex';
+      document.getElementById('controls').style.display = 'flex';
+      
+      const input = document.getElementById('song-url-input');
+      const sourceInfo = document.getElementById('source-info');
+      
+      switch(type) {
+        case 'direct':
+          input.placeholder = 'Pega URL de audio (.mp3, .ogg, .wav)...';
+          sourceInfo.textContent = 'Fuente: URL Directa - Visualizador activo ✓';
+          break;
+        case 'youtube':
+          input.placeholder = 'Pega link de YouTube (ej: https://youtube.com/watch?v=...)';
+          sourceInfo.textContent = 'Fuente: YouTube - Video embebido (sin visualizador)';
+          break;
+        case 'soundcloud':
+          input.placeholder = 'Pega link de SoundCloud (ej: https://soundcloud.com/...)';
+          sourceInfo.textContent = 'Fuente: SoundCloud - Player embebido';
+          break;
+        case 'radio':
+          document.getElementById('radio-list').classList.add('show');
+          document.getElementById('url-container').style.display = 'none';
+          sourceInfo.textContent = 'Fuente: Radio Online - Visualizador activo ✓';
+          break;
+      }
+      
+      document.getElementById('status-msg').textContent = 'Selecciona o pega un enlace';
+    }
+    
+    // Load source based on current type
+    function loadSource() {
+      const url = document.getElementById('song-url-input').value.trim();
+      if (!url) {
+        document.getElementById('status-msg').textContent = '⚠️ Pega un enlace primero';
+        return;
+      }
+      
+      switch(currentSource) {
+        case 'direct':
+          loadDirectUrl(url);
+          break;
+        case 'youtube':
+          loadYouTube(url);
+          break;
+        case 'soundcloud':
+          loadSoundCloud(url);
+          break;
+      }
+    }
+    
+    // Load direct audio URL
+    function loadDirectUrl(url) {
+      audio.src = url;
+      const name = decodeURIComponent(url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '')) || 'Canción';
+      document.getElementById('song-title').textContent = name;
+      document.getElementById('song-artist').textContent = 'Audio directo';
+      document.getElementById('status-msg').textContent = '✓ Cargado - presiona ▶';
+      document.getElementById('source-info').textContent = 'Fuente: URL Directa - Visualizador activo ✓';
+      
+      // Hide embeds
+      document.getElementById('youtube-container').classList.remove('show');
+      document.getElementById('soundcloud-container').style.display = 'none';
+      document.getElementById('progress-container').style.display = 'flex';
+      document.getElementById('controls').style.display = 'flex';
+      
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+    }
+    
+    // Load YouTube video
+    function loadYouTube(url) {
+      let videoId = '';
+      
+      // Extract video ID from various YouTube URL formats
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\?\/]+)/,
+        /youtube\.com\/shorts\/([^&\?\/]+)/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) {
+          videoId = match[1];
+          break;
+        }
+      }
+      
+      if (!videoId) {
+        document.getElementById('status-msg').textContent = '⚠️ URL de YouTube no válida';
+        return;
+      }
+      
+      // Stop audio player
+      audio.pause();
+      audio.src = '';
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+      
+      // Show YouTube embed
+      const youtubeContainer = document.getElementById('youtube-container');
+      const youtubeFrame = document.getElementById('youtube-frame');
+      youtubeFrame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+      youtubeContainer.classList.add('show');
+      
+      // Hide audio controls (YouTube has its own)
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('controls').style.display = 'none';
+      document.getElementById('soundcloud-container').style.display = 'none';
+      
+      document.getElementById('song-title').textContent = '▶️ YouTube Video';
+      document.getElementById('song-artist').textContent = 'Reproduciendo desde YouTube';
+      document.getElementById('status-msg').textContent = '✓ Video de YouTube cargado';
+      document.getElementById('source-info').textContent = 'Fuente: YouTube - Usa controles del video';
+    }
+    
+    // Load SoundCloud track
+    function loadSoundCloud(url) {
+      if (!url.includes('soundcloud.com')) {
+        document.getElementById('status-msg').textContent = '⚠️ URL de SoundCloud no válida';
+        return;
+      }
+      
+      // Stop audio player
+      audio.pause();
+      audio.src = '';
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+      
+      // Show SoundCloud embed
+      const scContainer = document.getElementById('soundcloud-container');
+      const scFrame = document.getElementById('soundcloud-frame');
+      const encodedUrl = encodeURIComponent(url);
+      scFrame.src = `https://w.soundcloud.com/player/?url=${encodedUrl}&color=%23a78bfa&auto_play=true&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`;
+      scContainer.style.display = 'block';
+      
+      // Hide other embeds
+      document.getElementById('youtube-container').classList.remove('show');
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('controls').style.display = 'none';
+      
+      document.getElementById('song-title').textContent = '☁️ SoundCloud';
+      document.getElementById('song-artist').textContent = 'Reproduciendo desde SoundCloud';
+      document.getElementById('status-msg').textContent = '✓ Track de SoundCloud cargado';
+      document.getElementById('source-info').textContent = 'Fuente: SoundCloud - Usa controles del player';
+    }
+    
+    // Load radio station
+    function loadRadio(name, url) {
+      // Hide embeds
+      document.getElementById('youtube-container').classList.remove('show');
+      document.getElementById('soundcloud-container').style.display = 'none';
+      document.getElementById('progress-container').style.display = 'flex';
+      document.getElementById('controls').style.display = 'flex';
+      
+      audio.src = url;
+      document.getElementById('song-title').textContent = `📻 Radio ${name.charAt(0).toUpperCase() + name.slice(1)}`;
+      document.getElementById('song-artist').textContent = 'Streaming en vivo';
+      document.getElementById('status-msg').textContent = '✓ Radio cargada - presiona ▶';
+      document.getElementById('source-info').textContent = 'Fuente: Radio Online - Visualizador activo ✓';
+      
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+      
+      // Auto-play radio
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      audio.play();
+      document.getElementById('play-btn').innerHTML = '⏸';
+      isPlaying = true;
+    }
     
     // Initialize visualizer bars
     function createVisualizerBars() {
@@ -503,21 +792,6 @@
       if (audio.duration) {
         audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + seconds));
       }
-    }
-    
-    // Load song from URL
-    function loadSongUrl() {
-      const url = document.getElementById('song-url-input').value.trim();
-      if (!url) return;
-      
-      audio.src = url;
-      const name = decodeURIComponent(url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '')) || 'Canción';
-      document.getElementById('song-title').textContent = name;
-      document.getElementById('song-artist').textContent = 'Listo para reproducir';
-      document.getElementById('status-msg').textContent = '✓ Canción cargada - presiona ▶';
-      
-      isPlaying = false;
-      document.getElementById('play-btn').innerHTML = '▶';
     }
     
     // Seek audio
