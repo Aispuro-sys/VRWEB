@@ -1,340 +1,653 @@
-
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; font-family: var(--font-sans); }
-  #canvas { display: block; width: 100%; height: 480px; }
-  #ui {
-    position: absolute; top: 0; left: 0; width: 100%; height: 480px;
-    pointer-events: none; display: flex; flex-direction: column;
-    align-items: center; justify-content: flex-end; padding-bottom: 24px;
-  }
-  #player {
-    pointer-events: all;
-    background: rgba(10,5,30,0.75);
-    border: 0.5px solid rgba(180,120,255,0.35);
-    border-radius: 20px;
-    padding: 16px 24px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    width: 320px;
-    backdrop-filter: blur(12px);
-  }
-  #song-title { font-size: 14px; font-weight: 500; color: #e8d5ff; letter-spacing: 0.04em; }
-  #song-artist { font-size: 12px; color: rgba(200,170,255,0.6); }
-  #progress-wrap { width: 100%; display: flex; align-items: center; gap: 8px; }
-  #progress { flex: 1; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; cursor: pointer; }
-  #progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #a78bfa, #f472b6); border-radius: 2px; transition: width 0.3s; }
-  .time-label { font-size: 11px; color: rgba(200,170,255,0.5); min-width: 28px; }
-  #controls { display: flex; align-items: center; gap: 20px; }
-  .ctrl-btn {
-    background: none; border: none; cursor: pointer;
-    color: rgba(200,170,255,0.7); font-size: 20px; line-height: 1;
-    transition: color 0.2s, transform 0.1s;
-  }
-  .ctrl-btn:hover { color: #f0d0ff; transform: scale(1.15); }
-  #play-btn {
-    width: 44px; height: 44px; border-radius: 50%;
-    background: rgba(160,100,255,0.25);
-    border: 1px solid rgba(160,100,255,0.5);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: #e8d5ff; font-size: 18px;
-    transition: background 0.2s, transform 0.1s;
-  }
-  #play-btn:hover { background: rgba(160,100,255,0.45); transform: scale(1.08); }
-  #vol-wrap { display: flex; align-items: center; gap: 6px; width: 100%; }
-  #vol-icon { font-size: 13px; color: rgba(200,170,255,0.5); }
-  #vol-slider { flex: 1; accent-color: #a78bfa; height: 3px; }
-  #msg {
-    font-size: 11px; color: rgba(200,170,255,0.5); text-align: center;
-    margin-top: 2px; letter-spacing: 0.03em;
-  }
-  #song-url-input {
-    width: 100%; background: rgba(255,255,255,0.07); border: 0.5px solid rgba(180,120,255,0.3);
-    border-radius: 8px; padding: 6px 10px; font-size: 12px; color: #e8d5ff;
-    outline: none; margin-top: 2px;
-  }
-  #song-url-input::placeholder { color: rgba(200,170,255,0.35); }
-  #add-song-btn {
-    background: rgba(160,100,255,0.2); border: 0.5px solid rgba(160,100,255,0.4);
-    color: #e8d5ff; border-radius: 8px; padding: 5px 14px; font-size: 12px;
-    cursor: pointer; transition: background 0.2s;
-  }
-  #add-song-btn:hover { background: rgba(160,100,255,0.4); }
-  #top-label {
-    position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; color: rgba(200,170,255,0.45); letter-spacing: 0.08em;
-    pointer-events: none; text-align: center;
-  }
-</style>
-
-<div style="position:relative; width:100%; height:480px; background:#000; border-radius:16px; overflow:hidden;">
-  <canvas id="canvas"></canvas>
-  <div id="top-label">🖱 Arrastra para girar · Scroll para zoom</div>
-  <div id="ui">
-    <div id="player">
-      <div style="text-align:center;">
-        <div id="song-title">Pon una canción 🎵</div>
-        <div id="song-artist" style="margin-top:2px;">Tu pareja</div>
-      </div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VR Music Experience - Experiencia 3D Inmersiva</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+    
+    #ui-overlay {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    #player-panel {
+      background: rgba(10, 5, 30, 0.85);
+      border: 1px solid rgba(180, 120, 255, 0.4);
+      border-radius: 20px;
+      padding: 20px 28px;
+      backdrop-filter: blur(20px);
+      min-width: 360px;
+      box-shadow: 0 8px 32px rgba(100, 50, 200, 0.3);
+    }
+    
+    #song-info { text-align: center; margin-bottom: 16px; }
+    #song-title { font-size: 16px; font-weight: 600; color: #e8d5ff; }
+    #song-artist { font-size: 13px; color: rgba(200, 170, 255, 0.6); margin-top: 4px; }
+    
+    #progress-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    
+    .time-label { font-size: 12px; color: rgba(200, 170, 255, 0.5); min-width: 36px; }
+    
+    #progress-bar {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    #progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #a78bfa, #f472b6);
+      border-radius: 2px;
+      transition: width 0.1s;
+    }
+    
+    #controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+    
+    .ctrl-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(200, 170, 255, 0.7);
+      font-size: 22px;
+      transition: all 0.2s;
+      padding: 8px;
+    }
+    
+    .ctrl-btn:hover { color: #f0d0ff; transform: scale(1.2); }
+    
+    #play-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(160, 100, 255, 0.4), rgba(244, 114, 182, 0.4));
+      border: 2px solid rgba(160, 100, 255, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 22px;
+      transition: all 0.2s;
+    }
+    
+    #play-btn:hover {
+      background: linear-gradient(135deg, rgba(160, 100, 255, 0.6), rgba(244, 114, 182, 0.6));
+      transform: scale(1.1);
+      box-shadow: 0 0 30px rgba(160, 100, 255, 0.5);
+    }
+    
+    #volume-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    
+    #vol-icon { font-size: 16px; color: rgba(200, 170, 255, 0.6); }
+    
+    #vol-slider {
+      flex: 1;
+      height: 4px;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+    }
+    
+    #vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #a78bfa, #f472b6);
+      cursor: pointer;
+    }
+    
+    #url-container {
+      display: flex;
+      gap: 8px;
+    }
+    
+    #song-url-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(180, 120, 255, 0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #e8d5ff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    #song-url-input:focus { border-color: rgba(180, 120, 255, 0.6); }
+    #song-url-input::placeholder { color: rgba(200, 170, 255, 0.35); }
+    
+    #load-btn {
+      background: linear-gradient(135deg, rgba(160, 100, 255, 0.3), rgba(244, 114, 182, 0.3));
+      border: 1px solid rgba(160, 100, 255, 0.5);
+      color: #e8d5ff;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    #load-btn:hover {
+      background: linear-gradient(135deg, rgba(160, 100, 255, 0.5), rgba(244, 114, 182, 0.5));
+    }
+    
+    #status-msg {
+      font-size: 12px;
+      color: rgba(200, 170, 255, 0.5);
+      text-align: center;
+      margin-top: 8px;
+    }
+    
+    #vr-instructions {
+      background: rgba(10, 5, 30, 0.7);
+      border: 1px solid rgba(180, 120, 255, 0.3);
+      border-radius: 12px;
+      padding: 10px 20px;
+      color: rgba(200, 170, 255, 0.7);
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .a-enter-vr-button {
+      background: linear-gradient(135deg, #a78bfa, #f472b6) !important;
+      border-radius: 12px !important;
+      font-weight: 600 !important;
+    }
+  </style>
+</head>
+<body>
+  <a-scene 
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    fog="type: exponential; color: #0a0020; density: 0.015">
+    
+    <!-- Assets -->
+    <a-assets>
       <audio id="audio" crossorigin="anonymous"></audio>
-      <div id="progress-wrap">
+    </a-assets>
+    
+    <!-- Sky / Environment -->
+    <a-sky color="#050010"></a-sky>
+    
+    <!-- Ambient lighting -->
+    <a-entity light="type: ambient; color: #330066; intensity: 0.4"></a-entity>
+    
+    <!-- Main point lights -->
+    <a-entity id="light1" light="type: point; color: #aa44ff; intensity: 2; distance: 50" position="8 6 8"></a-entity>
+    <a-entity id="light2" light="type: point; color: #ff44aa; intensity: 1.5; distance: 50" position="-8 -4 6"></a-entity>
+    <a-entity id="light3" light="type: point; color: #44aaff; intensity: 1; distance: 40" position="0 10 -5"></a-entity>
+    
+    <!-- Central music orb -->
+    <a-entity id="central-orb" position="0 1.6 -4">
+      <!-- Outer torus -->
+      <a-torus id="outer-torus" 
+        color="#6020a0" 
+        radius="1.2" 
+        radius-tubular="0.15"
+        segments-radial="48"
+        segments-tubular="96"
+        material="metalness: 0.8; roughness: 0.2; emissive: #3010505; emissiveIntensity: 0.3">
+      </a-torus>
+      
+      <!-- Inner glowing sphere -->
+      <a-sphere id="inner-sphere"
+        radius="0.7"
+        color="#1a0040"
+        material="metalness: 0.9; roughness: 0.1; emissive: #2a1060; emissiveIntensity: 0.5">
+      </a-sphere>
+      
+      <!-- Glow ring -->
+      <a-torus id="glow-ring"
+        radius="0.75"
+        radius-tubular="0.02"
+        color="#f472b6"
+        material="emissive: #f472b6; emissiveIntensity: 1; opacity: 0.9; transparent: true">
+      </a-torus>
+    </a-entity>
+    
+    <!-- Audio visualizer bars (circular arrangement) -->
+    <a-entity id="visualizer-container" position="0 1.6 -4">
+    </a-entity>
+    
+    <!-- Particle system - floating orbs -->
+    <a-entity id="particles-container" position="0 1.6 -4">
+    </a-entity>
+    
+    <!-- Stars background -->
+    <a-entity id="stars-container">
+    </a-entity>
+    
+    <!-- Floating platforms -->
+    <a-entity id="platforms">
+      <a-cylinder position="-6 -0.5 -8" radius="2" height="0.3" color="#1a0040" 
+        material="metalness: 0.7; roughness: 0.3; emissive: #2a1060; emissiveIntensity: 0.2">
+      </a-cylinder>
+      <a-cylinder position="6 0.5 -10" radius="1.5" height="0.3" color="#1a0040"
+        material="metalness: 0.7; roughness: 0.3; emissive: #2a1060; emissiveIntensity: 0.2">
+      </a-cylinder>
+      <a-cylinder position="0 -1 -15" radius="3" height="0.4" color="#1a0040"
+        material="metalness: 0.7; roughness: 0.3; emissive: #2a1060; emissiveIntensity: 0.2">
+      </a-cylinder>
+    </a-entity>
+    
+    <!-- Neon rings in space -->
+    <a-entity id="space-rings">
+      <a-torus position="0 5 -20" rotation="60 0 0" radius="8" radius-tubular="0.05" color="#a78bfa"
+        material="emissive: #a78bfa; emissiveIntensity: 1; opacity: 0.6; transparent: true">
+      </a-torus>
+      <a-torus position="0 -3 -25" rotation="-30 45 0" radius="12" radius-tubular="0.08" color="#f472b6"
+        material="emissive: #f472b6; emissiveIntensity: 1; opacity: 0.5; transparent: true">
+      </a-torus>
+      <a-torus position="10 2 -15" rotation="45 90 0" radius="5" radius-tubular="0.04" color="#44aaff"
+        material="emissive: #44aaff; emissiveIntensity: 1; opacity: 0.7; transparent: true">
+      </a-torus>
+    </a-entity>
+    
+    <!-- Ground grid -->
+    <a-entity id="ground-grid" position="0 -2 0" rotation="-90 0 0">
+      <a-plane width="100" height="100" color="#0a0020" material="opacity: 0.8; transparent: true"></a-plane>
+    </a-entity>
+    
+    <!-- Camera rig -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera 
+        look-controls="pointerLockEnabled: false"
+        wasd-controls="acceleration: 30">
+        <a-cursor color="#f472b6" fuse="false" raycaster="objects: .clickable"></a-cursor>
+      </a-camera>
+    </a-entity>
+    
+  </a-scene>
+  
+  <!-- UI Overlay -->
+  <div id="ui-overlay">
+    <div id="vr-instructions">🎮 WASD para moverte · Arrastra para mirar · Click en VR para inmersión total</div>
+    <div id="player-panel">
+      <div id="song-info">
+        <div id="song-title">🎵 VR Music Experience</div>
+        <div id="song-artist">Carga una canción para comenzar</div>
+      </div>
+      
+      <div id="progress-container">
         <span class="time-label" id="cur-time">0:00</span>
-        <div id="progress" onclick="seekAudio(event)"><div id="progress-fill"></div></div>
+        <div id="progress-bar" onclick="seekAudio(event)">
+          <div id="progress-fill"></div>
+        </div>
         <span class="time-label" id="dur-time">0:00</span>
       </div>
+      
       <div id="controls">
-        <button class="ctrl-btn" id="prev-btn" title="Anterior">⏮</button>
+        <button class="ctrl-btn" onclick="skipTime(-10)">⏪</button>
         <div id="play-btn" onclick="togglePlay()">▶</div>
-        <button class="ctrl-btn" id="next-btn" title="Siguiente">⏭</button>
+        <button class="ctrl-btn" onclick="skipTime(10)">⏩</button>
       </div>
-      <div id="vol-wrap">
+      
+      <div id="volume-container">
         <span id="vol-icon">🔊</span>
-        <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.7" oninput="setVol(this.value)">
+        <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.7" oninput="setVolume(this.value)">
       </div>
-      <div style="width:100%; display:flex; gap:6px; margin-top:4px;">
-        <input id="song-url-input" placeholder="Pega URL de audio (.mp3, .ogg, .wav)…">
-        <button id="add-song-btn" onclick="loadUrl()">▶ Cargar</button>
+      
+      <div id="url-container">
+        <input id="song-url-input" placeholder="Pega URL de audio (.mp3, .ogg, .wav)...">
+        <button id="load-btn" onclick="loadSongUrl()">▶ Cargar</button>
       </div>
-      <div id="msg">Carga una canción o usa un archivo local</div>
+      
+      <div id="status-msg">Listo para la experiencia inmersiva 🚀</div>
     </div>
   </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-const canvas = document.getElementById('canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setSize(canvas.parentElement.offsetWidth, 480);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, canvas.parentElement.offsetWidth / 480, 0.1, 1000);
-camera.position.set(0, 0, 22);
-
-// Stars
-const starGeo = new THREE.BufferGeometry();
-const starCount = 1800;
-const starPos = new Float32Array(starCount * 3);
-const starSizes = new Float32Array(starCount);
-for (let i = 0; i < starCount; i++) {
-  starPos[i*3]   = (Math.random()-0.5)*200;
-  starPos[i*3+1] = (Math.random()-0.5)*200;
-  starPos[i*3+2] = (Math.random()-0.5)*200;
-  starSizes[i] = Math.random() * 2 + 0.5;
-}
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
-const starMat = new THREE.PointsMaterial({ color: 0xddc4ff, size: 0.3, transparent: true, opacity: 0.85 });
-scene.add(new THREE.Points(starGeo, starMat));
-
-// Floating sphere (vinyl record look)
-const sphereGeo = new THREE.TorusGeometry(3.5, 0.9, 32, 100);
-const sphereMat = new THREE.MeshPhongMaterial({ color: 0x6020a0, shininess: 120, specular: 0xaa88ff, transparent: true, opacity: 0.9 });
-const torus = new THREE.Mesh(sphereGeo, sphereMat);
-scene.add(torus);
-
-// Inner sphere
-const innerGeo = new THREE.SphereGeometry(2.2, 64, 64);
-const innerMat = new THREE.MeshPhongMaterial({ color: 0x1a0040, shininess: 200, specular: 0xcc99ff });
-const innerSphere = new THREE.Mesh(innerGeo, innerMat);
-scene.add(innerSphere);
-
-// Center glow ring
-const glowGeo = new THREE.TorusGeometry(2.25, 0.08, 16, 80);
-const glowMat = new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.85 });
-const glowRing = new THREE.Mesh(glowGeo, glowMat);
-scene.add(glowRing);
-
-// Audio bars
-const barCount = 48;
-const bars = [];
-const barGroup = new THREE.Group();
-for (let i = 0; i < barCount; i++) {
-  const angle = (i / barCount) * Math.PI * 2;
-  const barGeo = new THREE.BoxGeometry(0.15, 0.5, 0.15);
-  const barMat = new THREE.MeshPhongMaterial({
-    color: new THREE.Color().setHSL(0.75 + (i/barCount)*0.2, 0.9, 0.65),
-    transparent: true, opacity: 0.9
-  });
-  const bar = new THREE.Mesh(barGeo, barMat);
-  bar.position.set(Math.cos(angle)*5, Math.sin(angle)*5, 0);
-  bar.rotation.z = angle;
-  barGroup.add(bar);
-  bars.push(bar);
-}
-scene.add(barGroup);
-
-// Particles
-const partCount = 300;
-const partGeo = new THREE.BufferGeometry();
-const partPos = new Float32Array(partCount * 3);
-const partVel = [];
-for (let i = 0; i < partCount; i++) {
-  const r = 6 + Math.random() * 12;
-  const theta = Math.random() * Math.PI * 2;
-  const phi = Math.random() * Math.PI;
-  partPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
-  partPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-  partPos[i*3+2] = r * Math.cos(phi);
-  partVel.push({ speed: 0.005 + Math.random()*0.01, angle: Math.random()*Math.PI*2, r });
-}
-partGeo.setAttribute('position', new THREE.BufferAttribute(partPos, 3));
-const partMat = new THREE.PointsMaterial({ color: 0xf472b6, size: 0.18, transparent: true, opacity: 0.7 });
-const particles = new THREE.Points(partGeo, partMat);
-scene.add(particles);
-
-// Lights
-const ambLight = new THREE.AmbientLight(0x330055, 1.2);
-scene.add(ambLight);
-const pointLight1 = new THREE.PointLight(0xaa44ff, 2.5, 60);
-pointLight1.position.set(10, 10, 10);
-scene.add(pointLight1);
-const pointLight2 = new THREE.PointLight(0xff44aa, 1.8, 60);
-pointLight2.position.set(-10, -8, 8);
-scene.add(pointLight2);
-
-// Orbit controls (manual)
-let isDragging = false, lastX=0, lastY=0, rotX=0, rotY=0, zoom=22;
-canvas.addEventListener('mousedown', e => { isDragging=true; lastX=e.clientX; lastY=e.clientY; });
-window.addEventListener('mouseup', () => isDragging=false);
-window.addEventListener('mousemove', e => {
-  if(!isDragging) return;
-  rotY += (e.clientX-lastX)*0.007;
-  rotX += (e.clientY-lastY)*0.007;
-  lastX=e.clientX; lastY=e.clientY;
-});
-canvas.addEventListener('wheel', e => { zoom = Math.max(8, Math.min(40, zoom+e.deltaY*0.03)); e.preventDefault(); }, {passive:false});
-
-// Touch support
-let lastTouchX=0, lastTouchY=0;
-canvas.addEventListener('touchstart', e => { lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY; });
-canvas.addEventListener('touchmove', e => {
-  rotY += (e.touches[0].clientX-lastTouchX)*0.008;
-  rotX += (e.touches[0].clientY-lastTouchY)*0.008;
-  lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY;
-  e.preventDefault();
-}, {passive:false});
-
-// Audio
-const audio = document.getElementById('audio');
-let analyser, dataArray, audioCtx, source, isConnected = false;
-
-function initAudio() {
-  if(isConnected) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 128;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source = audioCtx.createMediaElementSource(audio);
-  source.connect(analyser);
-  analyser.connect(audioCtx.destination);
-  isConnected = true;
-}
-
-let playing = false;
-function togglePlay() {
-  if(!audio.src) { document.getElementById('msg').textContent = '⚠ Carga una canción primero'; return; }
-  initAudio();
-  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  if(playing) { audio.pause(); document.getElementById('play-btn').innerHTML='▶'; }
-  else { audio.play(); document.getElementById('play-btn').innerHTML='⏸'; }
-  playing = !playing;
-}
-
-function setVol(v) { audio.volume = v; }
-function loadUrl() {
-  const url = document.getElementById('song-url-input').value.trim();
-  if(!url) return;
-  audio.src = url;
-  const name = url.split('/').pop().split('?')[0].replace(/\.[^.]+$/,'') || 'Canción';
-  document.getElementById('song-title').textContent = decodeURIComponent(name);
-  document.getElementById('msg').textContent = '✓ Cargado — presiona ▶';
-  playing = false; document.getElementById('play-btn').innerHTML='▶';
-}
-
-audio.addEventListener('timeupdate', () => {
-  const pct = audio.duration ? (audio.currentTime/audio.duration)*100 : 0;
-  document.getElementById('progress-fill').style.width = pct+'%';
-  document.getElementById('cur-time').textContent = fmt(audio.currentTime);
-  document.getElementById('dur-time').textContent = fmt(audio.duration||0);
-});
-audio.addEventListener('ended', () => { playing=false; document.getElementById('play-btn').innerHTML='▶'; });
-
-function fmt(s) {
-  const m=Math.floor(s/60), sec=Math.floor(s%60);
-  return m+':'+(sec<10?'0':'')+sec;
-}
-function seekAudio(e) {
-  if(!audio.duration) return;
-  const rect = document.getElementById('progress').getBoundingClientRect();
-  audio.currentTime = ((e.clientX-rect.left)/rect.width)*audio.duration;
-}
-
-// Animate
-let t = 0;
-function animate() {
-  requestAnimationFrame(animate);
-  t += 0.012;
-
-  // Camera orbit
-  const cx = zoom * Math.sin(rotY) * Math.cos(rotX);
-  const cy = zoom * Math.sin(rotX);
-  const cz = zoom * Math.cos(rotY) * Math.cos(rotX);
-  camera.position.set(cx, cy, cz);
-  camera.lookAt(0,0,0);
-
-  // Analyser
-  let bass = 0;
-  if(analyser && playing) {
-    analyser.getByteFrequencyData(dataArray);
-    bass = dataArray[2]/255;
-    for(let i=0;i<bars.length;i++) {
-      const val = (dataArray[Math.floor(i*dataArray.length/bars.length)]||0)/255;
-      bars[i].scale.y = 1 + val*8;
-      bars[i].position.setLength(5 + val*2);
+  
+  <script>
+    // Audio setup
+    const audio = document.getElementById('audio');
+    let audioCtx, analyser, dataArray, source;
+    let isAudioConnected = false;
+    let isPlaying = false;
+    
+    // Scene elements
+    let bars = [];
+    let particles = [];
+    let stars = [];
+    const BAR_COUNT = 64;
+    const PARTICLE_COUNT = 200;
+    const STAR_COUNT = 1500;
+    
+    // Initialize visualizer bars
+    function createVisualizerBars() {
+      const container = document.getElementById('visualizer-container');
+      
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const angle = (i / BAR_COUNT) * Math.PI * 2;
+        const radius = 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        const bar = document.createElement('a-box');
+        bar.setAttribute('width', '0.08');
+        bar.setAttribute('height', '0.3');
+        bar.setAttribute('depth', '0.08');
+        bar.setAttribute('position', `${x} 0 ${z}`);
+        bar.setAttribute('rotation', `0 ${-angle * (180/Math.PI) + 90} 0`);
+        
+        const hue = 0.75 + (i / BAR_COUNT) * 0.25;
+        const color = hslToHex(hue, 0.9, 0.6);
+        bar.setAttribute('color', color);
+        bar.setAttribute('material', `emissive: ${color}; emissiveIntensity: 0.5; metalness: 0.5; roughness: 0.3`);
+        
+        container.appendChild(bar);
+        bars.push({ el: bar, angle, baseRadius: radius });
+      }
     }
-  } else {
-    // Idle animation
-    for(let i=0;i<bars.length;i++) {
-      const wave = 0.5+0.5*Math.sin(t*1.5+i*0.3);
-      bars[i].scale.y = 0.4+wave*1.2;
-      bars[i].position.setLength(5+wave*0.3);
+    
+    // Create floating particles
+    function createParticles() {
+      const container = document.getElementById('particles-container');
+      
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const particle = document.createElement('a-sphere');
+        const r = 3 + Math.random() * 8;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        
+        const x = r * Math.sin(phi) * Math.cos(theta);
+        const y = r * Math.sin(phi) * Math.sin(theta) - 1;
+        const z = r * Math.cos(phi);
+        
+        particle.setAttribute('radius', 0.03 + Math.random() * 0.05);
+        particle.setAttribute('position', `${x} ${y} ${z}`);
+        
+        const colors = ['#f472b6', '#a78bfa', '#44aaff', '#ff6b9d'];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        particle.setAttribute('color', color);
+        particle.setAttribute('material', `emissive: ${color}; emissiveIntensity: 1; opacity: 0.8; transparent: true`);
+        
+        container.appendChild(particle);
+        particles.push({
+          el: particle,
+          speed: 0.002 + Math.random() * 0.005,
+          angle: Math.random() * Math.PI * 2,
+          radius: r,
+          yOffset: Math.random() * Math.PI * 2
+        });
+      }
     }
-    bass = 0.3+0.2*Math.sin(t*0.8);
-  }
-
-  torus.rotation.x = t*0.18;
-  torus.rotation.z = t*0.11;
-  innerSphere.rotation.y = t*0.22;
-  barGroup.rotation.z = t*0.07;
-  glowRing.rotation.x = t*0.3;
-  glowRing.material.opacity = 0.5+0.5*bass;
-  glowRing.scale.setScalar(1+bass*0.25);
-
-  // Particles drift
-  const pArr = partGeo.attributes.position.array;
-  for(let i=0;i<partCount;i++) {
-    partVel[i].angle += partVel[i].speed;
-    const r = partVel[i].r + Math.sin(t+i)*0.4;
-    const theta = partVel[i].angle;
-    pArr[i*3]   = r * Math.cos(theta);
-    pArr[i*3+1] = r * Math.sin(theta) * 0.5 + Math.sin(t*0.5+i)*2;
-    pArr[i*3+2] = r * Math.sin(theta) * 0.5;
-  }
-  partGeo.attributes.position.needsUpdate = true;
-
-  pointLight1.intensity = 2+bass*3;
-  pointLight2.intensity = 1.5+bass*2;
-  pointLight1.position.set(10*Math.cos(t*0.3), 10*Math.sin(t*0.2), 10);
-  pointLight2.position.set(-10*Math.cos(t*0.2), -8*Math.sin(t*0.3), 8);
-
-  renderer.render(scene, camera);
-}
-animate();
-
-window.addEventListener('resize', () => {
-  const w = canvas.parentElement.offsetWidth;
-  renderer.setSize(w, 480);
-  camera.aspect = w/480;
-  camera.updateProjectionMatrix();
-});
-</script>
+    
+    // Create star field
+    function createStars() {
+      const container = document.getElementById('stars-container');
+      
+      for (let i = 0; i < STAR_COUNT; i++) {
+        const star = document.createElement('a-sphere');
+        const x = (Math.random() - 0.5) * 150;
+        const y = (Math.random() - 0.5) * 100;
+        const z = (Math.random() - 0.5) * 150 - 20;
+        
+        star.setAttribute('radius', 0.02 + Math.random() * 0.06);
+        star.setAttribute('position', `${x} ${y} ${z}`);
+        star.setAttribute('color', '#ddc4ff');
+        star.setAttribute('material', 'emissive: #ddc4ff; emissiveIntensity: 1');
+        
+        container.appendChild(star);
+        stars.push({ el: star, twinkleSpeed: 0.5 + Math.random() * 2, phase: Math.random() * Math.PI * 2 });
+      }
+    }
+    
+    // HSL to Hex conversion
+    function hslToHex(h, s, l) {
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      const toHex = x => {
+        const hex = Math.round(x * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+      };
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    
+    // Initialize audio context
+    function initAudio() {
+      if (isAudioConnected) return;
+      
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      source = audioCtx.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      
+      isAudioConnected = true;
+    }
+    
+    // Toggle play/pause
+    function togglePlay() {
+      if (!audio.src) {
+        document.getElementById('status-msg').textContent = '⚠️ Carga una canción primero';
+        return;
+      }
+      
+      initAudio();
+      
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      if (isPlaying) {
+        audio.pause();
+        document.getElementById('play-btn').innerHTML = '▶';
+      } else {
+        audio.play();
+        document.getElementById('play-btn').innerHTML = '⏸';
+      }
+      
+      isPlaying = !isPlaying;
+    }
+    
+    // Set volume
+    function setVolume(v) {
+      audio.volume = v;
+    }
+    
+    // Skip time
+    function skipTime(seconds) {
+      if (audio.duration) {
+        audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + seconds));
+      }
+    }
+    
+    // Load song from URL
+    function loadSongUrl() {
+      const url = document.getElementById('song-url-input').value.trim();
+      if (!url) return;
+      
+      audio.src = url;
+      const name = decodeURIComponent(url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '')) || 'Canción';
+      document.getElementById('song-title').textContent = name;
+      document.getElementById('song-artist').textContent = 'Listo para reproducir';
+      document.getElementById('status-msg').textContent = '✓ Canción cargada - presiona ▶';
+      
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+    }
+    
+    // Seek audio
+    function seekAudio(e) {
+      if (!audio.duration) return;
+      const rect = document.getElementById('progress-bar').getBoundingClientRect();
+      audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+    }
+    
+    // Format time
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec < 10 ? '0' : ''}${sec}`;
+    }
+    
+    // Update progress
+    audio.addEventListener('timeupdate', () => {
+      const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('cur-time').textContent = formatTime(audio.currentTime);
+      document.getElementById('dur-time').textContent = formatTime(audio.duration || 0);
+    });
+    
+    audio.addEventListener('ended', () => {
+      isPlaying = false;
+      document.getElementById('play-btn').innerHTML = '▶';
+    });
+    
+    // Animation loop
+    let time = 0;
+    function animate() {
+      time += 0.016;
+      
+      // Get audio data
+      let bass = 0.3;
+      let mid = 0.3;
+      let high = 0.3;
+      
+      if (analyser && isPlaying) {
+        analyser.getByteFrequencyData(dataArray);
+        bass = dataArray[2] / 255;
+        mid = dataArray[10] / 255;
+        high = dataArray[30] / 255;
+      }
+      
+      // Animate central orb
+      const outerTorus = document.getElementById('outer-torus');
+      const innerSphere = document.getElementById('inner-sphere');
+      const glowRing = document.getElementById('glow-ring');
+      const centralOrb = document.getElementById('central-orb');
+      
+      if (outerTorus) {
+        outerTorus.setAttribute('rotation', `${time * 20} ${time * 15} 0`);
+      }
+      if (innerSphere) {
+        innerSphere.setAttribute('rotation', `0 ${time * 25} 0`);
+        const scale = 1 + bass * 0.3;
+        innerSphere.setAttribute('scale', `${scale} ${scale} ${scale}`);
+      }
+      if (glowRing) {
+        glowRing.setAttribute('rotation', `${time * 40} 0 ${time * 20}`);
+        const glowScale = 1 + bass * 0.4;
+        glowRing.setAttribute('scale', `${glowScale} ${glowScale} ${glowScale}`);
+      }
+      
+      // Animate visualizer bars
+      bars.forEach((bar, i) => {
+        let val;
+        if (analyser && isPlaying) {
+          const dataIndex = Math.floor(i * dataArray.length / bars.length);
+          val = (dataArray[dataIndex] || 0) / 255;
+        } else {
+          val = 0.3 + 0.3 * Math.sin(time * 2 + i * 0.2);
+        }
+        
+        const height = 0.3 + val * 2;
+        const radius = bar.baseRadius + val * 0.5;
+        const x = Math.cos(bar.angle) * radius;
+        const z = Math.sin(bar.angle) * radius;
+        
+        bar.el.setAttribute('scale', `1 ${height / 0.3} 1`);
+        bar.el.setAttribute('position', `${x} ${val * 0.5} ${z}`);
+        
+        const intensity = 0.3 + val * 0.7;
+        const hue = 0.75 + (i / bars.length) * 0.25;
+        const color = hslToHex(hue, 0.9, 0.5 + val * 0.2);
+        bar.el.setAttribute('material', `emissive: ${color}; emissiveIntensity: ${intensity}; metalness: 0.5; roughness: 0.3`);
+      });
+      
+      // Animate particles
+      particles.forEach((p, i) => {
+        p.angle += p.speed * (1 + bass);
+        const r = p.radius + Math.sin(time + i) * 0.5;
+        const x = r * Math.cos(p.angle);
+        const y = Math.sin(time * 0.5 + p.yOffset) * 2;
+        const z = r * Math.sin(p.angle);
+        p.el.setAttribute('position', `${x} ${y} ${z}`);
+      });
+      
+      // Animate lights
+      const light1 = document.getElementById('light1');
+      const light2 = document.getElementById('light2');
+      if (light1) {
+        light1.setAttribute('light', `intensity: ${1.5 + bass * 2}`);
+        light1.setAttribute('position', `${8 * Math.cos(time * 0.3)} ${6 + Math.sin(time * 0.2) * 2} ${8 * Math.sin(time * 0.3)}`);
+      }
+      if (light2) {
+        light2.setAttribute('light', `intensity: ${1 + mid * 1.5}`);
+        light2.setAttribute('position', `${-8 * Math.cos(time * 0.2)} ${-4 + Math.sin(time * 0.3) * 2} ${6 * Math.sin(time * 0.2)}`);
+      }
+      
+      // Twinkle stars
+      stars.forEach((star, i) => {
+        if (i % 10 === Math.floor(time * 10) % 10) {
+          const opacity = 0.5 + 0.5 * Math.sin(time * star.twinkleSpeed + star.phase);
+          star.el.setAttribute('material', `emissive: #ddc4ff; emissiveIntensity: ${opacity}`);
+        }
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Initialize scene
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      createVisualizerBars();
+      createParticles();
+      createStars();
+      animate();
+    });
+  </script>
+</body>
+</html>
